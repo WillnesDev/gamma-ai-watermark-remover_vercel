@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gamma Watermark Remover — Remove "Made with Gamma" branding</title>
+    <meta name="description" content="Free local tool to remove 'Made with Gamma' watermarks from PDF, PowerPoint (.pptx), Keynote (.key), and PNG slide exports from gamma.app." />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' stop-color='%237c3aed'/><stop offset='100%25' stop-color='%23a78bfa'/></linearGradient></defs><circle cx='50' cy='50' r='45' fill='url(%23g)'/><text x='50' y='68' text-anchor='middle' font-size='50' font-weight='700' fill='white' font-family='sans-serif'>G</text></svg>" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <!-- PDF.js for PDF thumbnail preview -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+            integrity="sha512-q+4liFwdPC7jklBEyaaxaqRsNiwQwBsFe3ov7IM9n1XSQBH/RL2kSSUfR1jSPpPMoGqAkLSaJDOCfQ0LYLmSA=="
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <!-- JSZip for PPTX thumbnail extraction & PNG bundling -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
+            integrity="sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxf26XV8P4wPk26EDxuGZ91N8bsOttmnomcCD3CS5ZMRL50H0GgOHvegtg=="
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <!-- JSZip CDN fallback: if SRI/network blocks the CDN, load from unpkg -->
+    <script>
+        if (typeof JSZip === 'undefined') {
+            document.write('<script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"><\/script>');
+        }
+    </script>
+
+    <style>
+        {% include 'styles/index_01.html' %}
+        {% include 'styles/index_02.html' %}
+        {% include 'styles/index_03.html' %}
+        {% include 'styles/index_04.html' %}
+        {% include 'styles/index_05.html' %}
+        {% include 'styles/index_06.html' %}
+        {% include 'styles/index_07.html' %}
+        {% include 'styles/index_08.html' %}
+    </style>
+</head>
+
+<body>
+    <!-- Animated Background -->
+    <div class="bg-gradient" aria-hidden="true"></div>
+
+    <!-- Theme Toggle (icon only) -->
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle light/dark mode" title="Toggle theme">
+        <svg class="icon icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        <svg class="icon icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+    </button>
+
+    <!-- Main Content -->
+    <main>
+        <div class="card" id="appCard">
+
+            <!-- Header -->
+            <header class="header">
+                <div class="logo-mark" aria-hidden="true">G</div>
+                <h1>Gamma Watermark Remover</h1>
+                <p>Remove <strong>"Made with Gamma"</strong> branding from PDF, PPTX, Keynote &amp; PNG exports</p>
+            </header>
+
+
+
+            <!-- Upload Form (posts to batch API; JS intercepts for live feedback) -->
+            <form id="uploadForm" action="/api/remove_watermarks" method="post" enctype="multipart/form-data">
+
+                <!-- Drop Zone -->
+                <div class="drop-zone" id="dropZone" role="button" tabindex="0"
+                     aria-label="Upload area. Click or drag files here.">
+                    <input type="file" name="files" class="drop-zone__input" accept=".pdf,.pptx,.key,.zip,.png,image/png"
+                           id="fileInput" multiple aria-label="Choose PDF, PPTX, Keynote, ZIP or PNG files" />
+                    <input type="file" id="folderInput" webkitdirectory directory style="display: none;" aria-label="Choose a folder of PNG slides" />
+
+                    <!-- Drag-over overlay for populated queue -->
+                    <div class="drop-zone__drag-overlay">
+                        <svg style="width: 44px; height: 44px; color: var(--accent-light);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                        <div class="drop-zone__prompt">Drop to add files to queue</div>
+                    </div>
+
+                    <!-- Default state -->
+                    <div class="drop-zone__default">
+                        <svg class="drop-zone__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242M12 12v9M9 15l3-3 3 3"/></svg>
+                        <div class="drop-zone__prompt">Drop your files/folder here or <strong>click to browse</strong></div>
+                        <div class="drop-zone__hint">Supports PDF, PPTX, Keynote (.key, macOS only), PNG ZIP or Folders <span class="hint-shortcut" id="hintShortcutUpload"></span></div>
+                    </div>
+
+                    <!-- File selected/queue state -->
+                    <div class="drop-zone__file-info" id="fileQueue">
+                        <!-- Queue header: count + clear all -->
+                        <div class="queue-header" id="queueHeader" style="display:none;">
+                            <span class="queue-count-badge" id="queueCountBadge">0 files</span>
+                            <button type="button" class="btn-clear-queue" id="clearQueueBtn" aria-label="Remove all files">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                Clear All
+                            </button>
+                        </div>
+                        <div id="queueList"></div>
+                        <div class="queue-actions">
+                            <button type="button" class="btn-add-more" id="addMoreFilesBtn">
+                                <svg style="width:13px;height:13px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg>
+                                <span>Add Files</span>
+                            </button>
+                            <button type="button" class="btn-add-more" id="addFolderBtn" style="border-color: var(--accent-light); color: var(--accent-light);">
+                                <svg style="width:13px;height:13px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                                <span>Add Folder</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- File size warning -->
+                <div class="size-warning" id="sizeWarning" role="alert">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    <span id="sizeWarningText"></span>
+                </div>
+
+                <!-- Submit -->
+                <button type="submit" class="btn-submit" id="submitBtn" disabled>
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="m5 3 1 2.5L8.5 6 6 7l-1 2.5L4 7l-2.5-1L4 5.5Z"/><path d="m19 17 1 2.5 2.5.5-2.5 1-1 2.5-1-2.5-2.5-1 2.5-.5Z"/></svg>
+                    <span>Remove Watermark</span>
+                    <span class="btn-shortcut" id="btnShortcutSubmit"></span>
+                </button>
+            </form>
+
+            <!-- Results Area -->
+            <div class="notification-area" id="notificationArea" aria-live="polite">
+                {% if error_message %}
+                <div class="notification error">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+                    <span>{{ error_message }}</span>
+                </div>
+                {% endif %}
+
+                {% if success_message %}
+                <div class="notification {% if download_filename %}success{% else %}info{% endif %}">
+                    {% if download_filename %}
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+                    {% else %}
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                    {% endif %}
+                    <span>{{ success_message }}</span>
+                </div>
+                {% if download_filename %}
+                <a href="/download/{{ download_filename }}" class="btn-download" id="downloadBtn">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    {% if file_type == 'pptx' %}Download Processed PPTX{% else %}Download Processed PDF{% endif %}
+                    <span class="btn-shortcut" id="btnShortcutDownload"></span>
+                </a>
+                {% endif %}
+                {% endif %}
+            </div>
+
+            <!-- Processing History -->
+            <section class="history-section" id="historySection" style="display:none;">
+                <div class="history-header">
+                    <button class="history-toggle" id="historyToggle" aria-expanded="false" aria-controls="historyList">
+                        <span>Recent Files</span>
+                        <span id="historyCount" class="history-count-badge"></span>
+                        <svg class="icon icon-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                    </button>
+                    <button class="history-clear" id="historyClear" title="Clear all history">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/></svg> Clear All
+                    </button>
+                </div>
+                <ul class="history-list" id="historyList" role="list"></ul>
+            </section>
+
+            <!-- Processing Overlay -->
+            <div class="overlay" id="overlay" role="alert" aria-live="assertive">
+                <div class="overlay__spinner"></div>
+                <div class="overlay__text" id="overlayText">Uploading…</div>
+                <div class="overlay__subtext" id="overlaySubtext" style="font-size: 0.85rem; color: var(--text-muted); margin-top: -10px; text-align: center; max-width: 80%; width: 80%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></div>
+                <div class="overlay__progress-wrap">
+                    <div class="overlay__progress-bar" id="progressBar"></div>
+                </div>
+                <div class="overlay__elapsed" id="overlayElapsed"></div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div>v2.5.0 · <a href="https://github.com/DedInc/gamma-ai-watermark-remover" target="_blank" rel="noopener">GitHub</a></div>
+        <div>For educational purposes only. Not affiliated with Gamma.</div>
+    </footer>
+
+    <!-- ============================
+         JavaScript
+         ============================ -->
+    <script>
+    {% include 'scripts/index_01.html' %}
+    {% include 'scripts/index_02.html' %}
+    {% include 'scripts/index_03.html' %}
+    {% include 'scripts/index_04.html' %}
+    {% include 'scripts/index_05.html' %}
+    </script>
+</body>
+</html>
